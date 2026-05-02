@@ -1,0 +1,164 @@
+<script type="text/javascript">
+    RED.nodes.registerType("crestron-isc", {
+        category: "network",
+        color: "#E58A7E",
+        defaults: {
+            name: { value: "" },
+            mode: { value: "server", required: true },
+            host: {
+                value: "",
+                validate: function (v) {
+                    return this.mode !== "client" || (typeof v === "string" && v.trim().length > 0);
+                }
+            },
+            port: {
+                value: 49152,
+                required: true,
+                validate: function (v) {
+                    const n = Number(v);
+                    return Number.isFinite(n) && n >= 1 && n <= 65535;
+                }
+            },
+            totalAnalogSignals: {
+                value: 0,
+                required: true,
+                validate: function (v) {
+                    const n = Number(v);
+                    return Number.isFinite(n) && n >= 0 && n <= 1024;
+                }
+            },
+            reconnectMs: {
+                value: 3000,
+                validate: function (v) {
+                    const n = Number(v);
+                    return Number.isFinite(n) && n >= 500;
+                }
+            }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-exchange",
+        paletteLabel: "Crestron ISC",
+        label: function () {
+            if (this.name) return this.name;
+            if (this.mode === "client") return `ISC → ${this.host || "?"}:${this.port}`;
+            return `ISC :${this.port}`;
+        },
+        oneditprepare: function () {
+            const $mode = $("#node-input-mode");
+            function sync() {
+                const isClient = $mode.val() === "client";
+                $("#node-row-host, #node-row-reconnect").toggle(isClient);
+            }
+            $mode.on("change", sync);
+            setTimeout(sync, 0);
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="crestron-isc">
+    <style>
+        .crestron-isc-edit .form-row label { width: 170px; }
+        .crestron-isc-edit .form-row input,
+        .crestron-isc-edit .form-row select { width: calc(100% - 180px); }
+    </style>
+    <div class="crestron-isc-edit">
+        <div class="form-row">
+            <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+            <input type="text" id="node-input-name">
+        </div>
+
+        <div class="form-row">
+            <label for="node-input-mode"><i class="fa fa-exchange"></i> Mode</label>
+            <select id="node-input-mode">
+                <option value="server">Server (listen)</option>
+                <option value="client">Client (connect)</option>
+            </select>
+        </div>
+
+        <div class="form-row" id="node-row-host">
+            <label for="node-input-host"><i class="fa fa-globe"></i> Host</label>
+            <input type="text" id="node-input-host" placeholder="192.168.1.52">
+        </div>
+
+        <div class="form-row">
+            <label for="node-input-port"><i class="fa fa-sign-in"></i> Port</label>
+            <input type="number" id="node-input-port" min="1" max="65535">
+        </div>
+
+        <div class="form-row" id="node-row-reconnect">
+            <label for="node-input-reconnectMs"><i class="fa fa-refresh"></i> Reconnect (ms)</label>
+            <input type="number" id="node-input-reconnectMs" min="500" step="500">
+        </div>
+
+        <div class="form-row">
+            <label for="node-input-totalAnalogSignals"><i class="fa fa-hashtag"></i> Total Analog Signals</label>
+            <input type="number" id="node-input-totalAnalogSignals" min="0" max="1024">
+        </div>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="crestron-isc">
+    <p>TCP transport for the Crestron ISC (Intersystems Communications) protocol. Encodes outgoing
+    Node-RED messages into ISC byte frames and decodes incoming bytes from a Crestron processor's
+    ISC symbol back into messages.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>topic <span class="property-type">string</span></dt>
+        <dd>One of <code>digital</code>, <code>analog</code>, or <code>serial</code>.</dd>
+
+        <dt>channel <span class="property-type">number | array</span></dt>
+        <dd>Signal channel number (1-indexed). May be an array to send multiple signals in one
+        message; pair with an array <code>payload</code> of equal length.</dd>
+
+        <dt>payload <span class="property-type">boolean | number | string | array</span></dt>
+        <dd>The signal value:
+            <ul>
+                <li><code>digital</code>: boolean (or 0/1)</li>
+                <li><code>analog</code>: integer 0..65535</li>
+                <li><code>serial</code>: latin1 string (no <code>0xFF</code> bytes, non-empty)</li>
+            </ul>
+        </dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <p>One message per decoded ISC frame, with <code>topic</code>, <code>channel</code>, and
+    <code>payload</code> populated as above.</p>
+
+    <h3>Configuration</h3>
+    <dl class="message-properties">
+        <dt>Mode</dt>
+        <dd><b>Server (listen)</b> opens a TCP listener on the given port and accepts connections
+        from one or more Crestron processors. <b>Client (connect)</b> connects out to a Crestron
+        at the given host/port and reconnects automatically on disconnect.</dd>
+
+        <dt>Host</dt>
+        <dd>Client mode only. The IP address or hostname of the Crestron processor.</dd>
+
+        <dt>Port</dt>
+        <dd>TCP port to listen on (server) or connect to (client). The Crestron ISC default is
+        typically <code>49152</code>.</dd>
+
+        <dt>Reconnect (ms)</dt>
+        <dd>Client mode only. How long to wait after a disconnect before retrying. Default
+        <code>3000</code> ms.</dd>
+
+        <dt>Total Analog Signals</dt>
+        <dd>The total count of analog + serial signals used on the ISC symbol in the Crestron
+        program. The symbol must have identical quantities on both sides.</dd>
+    </dl>
+
+    <h3>Multi-client behavior</h3>
+    <p>In server mode, outgoing encoded frames are broadcast to <i>all</i> currently connected
+    clients. Incoming bytes are buffered per-connection so frames from different clients cannot
+    interleave. ISC is normally a one-to-one peer link, so this matches typical use.</p>
+
+    <h3>Status indicator</h3>
+    <ul>
+        <li><span style="color:#3FADB5">●</span> Server: listening on the configured port</li>
+        <li><span style="color:#5a8a3f">●</span> One or more clients connected</li>
+        <li><span style="color:#daa520">●</span> Client mode: waiting to reconnect</li>
+        <li><span style="color:#c00">●</span> Error (port in use, missing host, etc.)</li>
+    </ul>
+</script>

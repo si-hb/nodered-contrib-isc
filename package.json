@@ -1,0 +1,26 @@
+{
+  "name": "node-red-contrib-crestron-isc",
+  "version": "0.1.0",
+  "description": "Node-RED node for the Crestron ISC (Intersystems Communications) protocol over TCP. Encodes/decodes digital, analog, and serial signals against an ISC symbol on a Crestron control processor, in either server or client mode.",
+  "keywords": [
+    "node-red",
+    "crestron",
+    "isc",
+    "intersystems",
+    "tcp"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=14"
+  },
+  "files": [
+    "nodes",
+    "README.md"
+  ],
+  "node-red": {
+    "version": ">=2.0.0",
+    "nodes": {
+      "crestron-isc": "nodes/crestron-isc.js"
+    }
+  }
+}
