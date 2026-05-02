@@ -1,6 +1,15 @@
 # node-red-contrib-crestron-isc
 
-A Node-RED node that speaks the Crestron ISC (Intersystems Communications) protocol over TCP.
+Node-RED nodes for the Crestron ISC (Intersystems Communications) protocol. Encodes and decodes
+digital, analog, and serial signals against an ISC symbol on a Crestron control processor.
+
+The package ships **three nodes** so you can pick the right shape for your transport:
+
+| Node                | Purpose                                                                                                     |
+|---------------------|-------------------------------------------------------------------------------------------------------------|
+| **Crestron ISC**    | Bundles encode + decode + TCP server/client. Use this when ISC runs over TCP (the common case).             |
+| **Crestron ISC TX** | Encoder only: msg in, raw Buffer out. Wire to any transport node (serial, RS232/RS485, MQTT, raw TCP, etc.).|
+| **Crestron ISC RX** | Decoder only: raw Buffer in, decoded msgs out. Same idea, in the other direction.                           |
 
 ## Install
 
@@ -27,11 +36,9 @@ from its output.
 
 ### Inputs
 
-| `msg` field | type                              | meaning                                                  |
-|-------------|-----------------------------------|----------------------------------------------------------|
-| `topic`     | `"digital"` / `"analog"` / `"serial"` | ISC signal type to send                              |
-| `channel`   | number, or array of numbers       | Signal channel (1-indexed)                               |
-| `payload`   | boolean / number / string / array | Signal value (see below); arrays parallel `channel`      |
+- **`msg.topic`** — `"digital"` / `"analog"` / `"serial"`. ISC signal type to send.
+- **`msg.channel`** — number, or array of numbers. Signal channel (1-indexed).
+- **`msg.payload`** — boolean / number / string / array. Signal value (see below); arrays parallel `channel`.
 
 Per-topic payload types:
 
@@ -46,13 +53,11 @@ conventions.
 
 ## Configuration
 
-| Field                  | Default  | Notes                                                              |
-|------------------------|----------|--------------------------------------------------------------------|
-| Mode                   | server   | `Server (listen)` accepts incoming connections; `Client (connect)` dials out |
-| Host                   | —        | Client mode only: the Crestron processor's IP                      |
-| Port                   | 49152    | TCP port (1..65535)                                                |
-| Reconnect (ms)         | 3000     | Client mode only: wait between reconnect attempts                  |
-| Total Analog Signals   | 0        | Total count of analog + serial signals on the ISC symbol           |
+- **Mode** *(default `server`)* — `Server (listen)` accepts incoming connections; `Client (connect)` dials out.
+- **Host** — client mode only: the Crestron processor's IP.
+- **Port** *(default `49152`)* — TCP port (1..65535).
+- **Reconnect (ms)** *(default `3000`)* — client mode only: wait between reconnect attempts.
+- **Total Analog Signals** *(default `0`)* — total count of analog + serial signals on the ISC symbol.
 
 **Total Analog Signals** must match the count of analog + serial signals defined on the Crestron
 ISC symbol in the SIMPL program. Both sides of the symbol must have identical quantities. This
@@ -81,6 +86,44 @@ Key elements:
      symbol listening on the same port.
 5. **Total Analog Signals** in the Node-RED node must equal the number of analog + serial signal
    pairs on the ISC symbol.
+
+## Standalone encoder / decoder (non-TCP transports)
+
+The **Crestron ISC TX** and **Crestron ISC RX** nodes are pure codecs with no transport. Use
+them when ISC needs to ride over something other than TCP — for example a serial RS232/RS485
+link via [`node-red-node-serialport`](https://flows.nodered.org/node/node-red-node-serialport),
+or even MQTT.
+
+Typical wiring:
+
+```text
+[inject]──▶[Crestron ISC TX]──▶[serial out]            (outgoing)
+
+[serial in]──▶[Crestron ISC RX]──▶[debug]              (incoming)
+```
+
+The TX node accepts the same `topic` / `channel` / `payload` inputs as the all-in-one **Crestron
+ISC** node, but instead of writing to a socket it sets `msg.payload` to the encoded `Buffer` and
+forwards. The RX node accepts a `Buffer` (or `Uint8Array` / `Array`) on `msg.payload`, buffers
+partial frames internally across calls, and emits one msg per decoded frame.
+
+> **Per-stream state**: the RX node's partial-frame buffer is per node instance. If you have two
+> independent byte streams (e.g. two serial ports), drop two RX nodes — sharing one across
+> streams will interleave bytes and corrupt frames.
+
+### Hardening for unreliable transports
+
+ISC has no checksum or framing CRC, so on lossy transports (RS232/RS485 in particular) the RX
+node exposes three protections against stuck/corrupt streams:
+
+- **Max Buffer (bytes)** *(default `4096`)* — Hard cap on the partial-frame buffer. On overflow — typically a missing `0xFF` serial-frame terminator — the runaway prefix is discarded and the decoder resyncs at the next frame-start byte.
+- **Idle Timeout (ms)** *(default `0`, disabled)* — If no input arrives for this long while partial-frame bytes are buffered, flush them so a stalled mid-frame doesn't poison the next valid frame.
+- **`msg.reset === true`** — Send a message with `msg.reset: true` to flush the buffer immediately. Hook this to your transport's link-down event or your own watchdog.
+
+What the decoder **cannot** detect: bit errors inside a frame's value bytes will produce a wrong
+but plausible decoded value (e.g. an analog reading off by a power of two). If your transport
+is noisy enough to matter, layer your own integrity check above the protocol — for example
+periodic re-broadcast of authoritative state from the Crestron side.
 
 ## Multi-client behavior
 

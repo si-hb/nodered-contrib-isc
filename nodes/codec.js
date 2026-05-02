@@ -7,6 +7,13 @@
 function makeCodec(options) {
     const warn = (options && options.warn) || (() => {});
 
+    // RX safety cap. If the running buffer ever exceeds this size — typically caused by a
+    // serial-frame terminator that was lost or corrupted on the wire (RS232/RS485) — the
+    // decoder discards the runaway prefix and resyncs at the next frame-start byte.
+    const maxBuffer = (options && Number.isFinite(options.maxBuffer) && options.maxBuffer > 0)
+        ? Math.trunc(options.maxBuffer)
+        : 4096;
+
     // --- HELPERS ---
 
     function toInt(v, label) {
@@ -254,6 +261,31 @@ function makeCodec(options) {
         if (!RX.length) {
             if (state) state.rx = Buffer.alloc(0);
             return;
+        }
+
+        // Safety cap. On lossy transports a missing 0xFF terminator inside a serial frame
+        // would otherwise cause state.rx to grow unbounded.
+        if (RX.length > maxBuffer) {
+            const before = RX.length;
+            // Find the next plausible frame-start byte after offset 1 to resync against.
+            // Any high-bit byte matching one of the three start patterns counts. (Yes, a
+            // serial-payload byte could match — without the terminator we can't tell — but
+            // resyncing here is strictly better than holding garbage forever.)
+            let resyncAt = -1;
+            for (let j = 1; j < RX.length; j++) {
+                const b = RX[j];
+                if (isDigitalStart(b) || isAnalogStart(b) || isSerialStart(b)) {
+                    resyncAt = j;
+                    break;
+                }
+            }
+            // If nothing usable found, drop everything and start fresh.
+            RX = resyncAt >= 0 ? RX.slice(resyncAt) : Buffer.alloc(0);
+            warn(`RX buffer exceeded ${maxBuffer} bytes; discarded ${before - RX.length} bytes to resync (likely missing 0xFF terminator)`);
+            if (!RX.length) {
+                if (state) state.rx = Buffer.alloc(0);
+                return;
+            }
         }
 
         let i = 0;

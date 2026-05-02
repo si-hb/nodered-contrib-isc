@@ -1,0 +1,128 @@
+<script type="text/javascript">
+    RED.nodes.registerType("crestron-isc-rx", {
+        category: "network",
+        color: "#E58A7E",
+        defaults: {
+            name: { value: "" },
+            totalAnalogSignals: {
+                value: 0,
+                required: true,
+                validate: function (v) {
+                    const n = Number(v);
+                    return Number.isFinite(n) && n >= 0 && n <= 1024;
+                }
+            },
+            maxBuffer: {
+                value: 4096,
+                validate: function (v) {
+                    const n = Number(v);
+                    return Number.isFinite(n) && n >= 16 && n <= 1048576;
+                }
+            },
+            idleTimeoutMs: {
+                value: 0,
+                validate: function (v) {
+                    const n = Number(v);
+                    return Number.isFinite(n) && n >= 0 && n <= 600000;
+                }
+            }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-sign-in",
+        paletteLabel: "Crestron ISC RX",
+        label: function () {
+            return this.name || "Crestron ISC RX";
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="crestron-isc-rx">
+    <style>
+        .crestron-isc-rx-edit .form-row label { width: 170px; }
+        .crestron-isc-rx-edit .form-row input { width: calc(100% - 180px); }
+    </style>
+    <div class="crestron-isc-rx-edit">
+        <div class="form-row">
+            <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+            <input type="text" id="node-input-name">
+        </div>
+
+        <div class="form-row">
+            <label for="node-input-totalAnalogSignals"><i class="fa fa-hashtag"></i> Total Analog Signals</label>
+            <input type="number" id="node-input-totalAnalogSignals" min="0" max="1024">
+        </div>
+
+        <div class="form-row">
+            <label for="node-input-maxBuffer"><i class="fa fa-database"></i> Max Buffer (bytes)</label>
+            <input type="number" id="node-input-maxBuffer" min="16" max="1048576">
+        </div>
+
+        <div class="form-row">
+            <label for="node-input-idleTimeoutMs"><i class="fa fa-clock-o"></i> Idle Timeout (ms)</label>
+            <input type="number" id="node-input-idleTimeoutMs" min="0" max="600000">
+        </div>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="crestron-isc-rx">
+    <p>Decodes raw ISC byte frames into Node-RED messages. Pure codec — no transport.
+    Wire the input from whatever Node-RED node delivers the bytes (serial port,
+    RS232/RS485, MQTT, raw TCP, file read, etc.).</p>
+
+    <p>For TCP-based ISC connections you almost always want the <b>Crestron ISC</b> node
+    instead, which bundles encode + decode + TCP server/client into one.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">Buffer | Uint8Array | Array</span></dt>
+        <dd>Raw ISC bytes. Partial frames are buffered across input messages, so the
+        upstream transport may chunk arbitrarily.</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <p>One message per decoded ISC frame, with <code>topic</code>, <code>channel</code>,
+    and <code>payload</code> populated:</p>
+    <ul>
+        <li><code>digital</code> → <code>payload</code> is a boolean</li>
+        <li><code>analog</code> → <code>payload</code> is an integer 0..65535</li>
+        <li><code>serial</code> → <code>payload</code> is a latin1 string</li>
+    </ul>
+    <p>Other input message properties are preserved on each emitted output message.</p>
+
+    <h3>Configuration</h3>
+    <dl class="message-properties">
+        <dt>Total Analog Signals</dt>
+        <dd>The total count of analog + serial signals used on the ISC symbol in the Crestron
+        program. The symbol must have identical quantities on both sides.</dd>
+
+        <dt>Max Buffer (bytes)</dt>
+        <dd>Hard cap on the partial-frame buffer. If exceeded — typically because a
+        <code>0xFF</code> serial-frame terminator was lost or corrupted on the wire — the
+        decoder discards the runaway prefix and resyncs at the next frame-start byte.
+        Default <code>4096</code>. Increase if you legitimately send long serial payloads.</dd>
+
+        <dt>Idle Timeout (ms)</dt>
+        <dd>If no input arrives for this long while the decoder still holds buffered partial
+        bytes, the buffer is flushed. Use on stalling transports (RS232/RS485) so a
+        mid-frame interruption doesn't corrupt the next valid frame whenever it arrives.
+        Default <code>0</code> (disabled).</dd>
+    </dl>
+
+    <h3>Manual reset</h3>
+    <p>Send a message with <code>msg.reset === true</code> to flush the partial-frame buffer
+    immediately. Useful when your upstream transport reports link-down or you have your own
+    watchdog logic.</p>
+
+    <h3>Multiple streams</h3>
+    <p>The internal rx buffer is per-node-instance. If you have <i>multiple independent</i>
+    byte streams (e.g. two RS232 ports) feeding ISC frames, drop one decoder node per stream
+    — sharing one decoder across streams will interleave bytes and corrupt frames.</p>
+
+    <h3>Inherent protocol limits</h3>
+    <p>ISC has no checksum or framing CRC. Single-bit corruption inside a frame's value
+    bytes will produce a wrong but plausible decoded value (e.g. an analog reading off by
+    a power of two). The decoder cannot detect this. If your transport is noisy enough to
+    matter, layer your own integrity check above the protocol — e.g. periodic re-broadcast
+    of authoritative state from the Crestron side.</p>
+</script>
