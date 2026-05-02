@@ -11,6 +11,30 @@ The package ships **three nodes** so you can pick the right shape for your trans
 | **Crestron ISC TX** | Encoder only: msg in, raw Buffer out. Wire to any transport node (serial, RS232/RS485, MQTT, raw TCP, etc.).|
 | **Crestron ISC RX** | Decoder only: raw Buffer in, decoded msgs out. Same idea, in the other direction.                           |
 
+## Why ISC
+
+Crestron's ISC (Intersystems Communications) protocol is extremely lightweight:
+**2 bytes** for a digital signal, **4 bytes** for a 16-bit analog, and a 2-byte
+header + payload + 1-byte terminator for serial strings. No length prefixes, no
+per-frame headers, no checksums, no handshake. The high bit of every byte does
+double duty as the framing marker, so the decoder can resync from any byte
+boundary the moment a clean frame-start byte appears.
+
+That tiny footprint is the point of these nodes:
+
+- **Native peer to existing Crestron systems.** When the SIMPL program already
+  has an Intersystem Communications symbol, Node-RED slots in as another peer on
+  the bus — no translation layer, no API gateway, no schema to maintain.
+- **High-frequency updates without bus pressure.** A button press, a fader move,
+  a feedback indicator — 2 to 4 bytes on the wire each, versus dozens of bytes
+  for the JSON/MQTT-encoded equivalent. Matters on serial links and slow networks
+  where every byte costs.
+
+The flip side of "lightweight" is that the protocol does no integrity checking —
+single-bit errors produce wrong-but-plausible decoded values. On unreliable
+transports, lean on the **RX** node's hardening options (see below) and consider
+layering a periodic re-broadcast of authoritative state from the Crestron side.
+
 ## Install
 
 ```bash
