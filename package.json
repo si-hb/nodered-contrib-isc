@@ -10,12 +10,22 @@
     "tcp"
   ],
   "license": "MIT",
+  "author": "Symphony Interactive",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/si-hb/nodered-contrib-isc.git"
+  },
+  "homepage": "https://github.com/si-hb/nodered-contrib-isc#readme",
+  "bugs": {
+    "url": "https://github.com/si-hb/nodered-contrib-isc/issues"
+  },
   "engines": {
     "node": ">=14"
   },
   "files": [
     "nodes",
-    "README.md"
+    "README.md",
+    "SMW.png"
   ],
   "node-red": {
     "version": ">=2.0.0",

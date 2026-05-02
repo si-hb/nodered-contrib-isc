@@ -58,6 +58,30 @@ conventions.
 ISC symbol in the SIMPL program. Both sides of the symbol must have identical quantities. This
 value is used as the digital channel offset in the wire protocol.
 
+## Crestron program setup
+
+Wire your SIMPL Windows program as shown:
+
+![Crestron SIMPL Windows ISC + TCP/IP Client setup](SMW.png)
+
+Key elements:
+
+1. **Intersystem Communications symbol** in your program logic. Configure as many `ain*/aout*`,
+   `dig_in*/dig_out*`, and serial input/output pairs as your application needs. Both sides of the
+   symbol (the inputs and the matching outputs) must have **identical quantities**.
+2. **TCP/IP Client (or Server) symbol** on the Ethernet slot, with its `RX$` and `TX$` wired to
+   the ISC symbol's `rx$` and `tx$` pins respectively. The `Connect` input drives whether the
+   processor is connected.
+3. **Port** on the TCP/IP symbol must match the **Port** in the Node-RED node. The example uses
+   `49152`.
+4. **Direction**:
+   - If the Node-RED node is configured as **Server (listen)**, use a Crestron **TCP/IP Client**
+     symbol pointed at the Node-RED host's IP.
+   - If the Node-RED node is configured as **Client (connect)**, use a Crestron **TCP/IP Server**
+     symbol listening on the same port.
+5. **Total Analog Signals** in the Node-RED node must equal the number of analog + serial signal
+   pairs on the ISC symbol.
+
 ## Multi-client behavior
 
 In server mode, encoded frames are **broadcast to every connected client**. Incoming bytes are
