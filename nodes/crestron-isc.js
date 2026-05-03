@@ -18,8 +18,8 @@ module.exports = function (RED) {
         const totalAnalogSignals = (() => {
             const n = Number(config.totalAnalogSignals);
             if (!Number.isFinite(n)) {
-                node.warn(`Invalid Total Analog Signals "${config.totalAnalogSignals}", using 0`);
-                return 0;
+                node.warn(`Invalid Total Analog Signals "${config.totalAnalogSignals}", using 1`);
+                return 1;
             }
             return Math.trunc(n);
         })();

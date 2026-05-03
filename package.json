@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-crestron-isc",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Node-RED nodes for the Crestron ISC (Intersystems Communications) protocol. Ships three nodes: a TCP server/client, a standalone encoder, and a standalone decoder — so you can run ISC over TCP, serial (RS232/RS485), or any other Node-RED transport.",
   "keywords": [
     "node-red",

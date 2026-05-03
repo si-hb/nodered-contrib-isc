@@ -85,7 +85,7 @@ conventions.
 - **Host** — client mode only: the Crestron processor's IP.
 - **Port** *(default `49152`)* — TCP port (1..65535).
 - **Reconnect (ms)** *(default `3000`)* — client mode only: wait between reconnect attempts.
-- **Total Analog Signals** *(default `0`)* — total count of analog + serial signals on the ISC symbol.
+- **Total Analog Signals** *(default `1`)* — total count of analog + serial signals on the ISC symbol.
 
 **Total Analog Signals** must match the count of analog + serial signals defined on the Crestron
 ISC symbol in the SIMPL program. Both sides of the symbol must have identical quantities. This
