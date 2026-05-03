@@ -37,12 +37,16 @@ layering a periodic re-broadcast of authoritative state from the Crestron side.
 
 ## Install
 
+**From the Node-RED editor** *(easiest)*: open the hamburger menu → **Manage palette** → **Install** tab → search for `node-red-contrib-crestron-isc` → **Install**.
+
+**From the command line**:
+
 ```bash
 cd ~/.node-red
-npm install /path/to/node-red-contrib-crestron-isc
+npm install node-red-contrib-crestron-isc
 ```
 
-Or, for development:
+**For local development** (when working from a checkout of this repo):
 
 ```bash
 cd /path/to/node-red-contrib-crestron-isc
@@ -51,7 +55,7 @@ cd ~/.node-red
 npm link node-red-contrib-crestron-isc
 ```
 
-Then restart Node-RED. The **Crestron ISC** node appears in the *network* category of the palette.
+After installing, restart Node-RED. The three nodes — **Crestron ISC**, **Crestron ISC TX**, and **Crestron ISC RX** — appear in the *network* category of the palette.
 
 ## Usage
 
